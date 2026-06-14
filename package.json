@@ -1,0 +1,47 @@
+{
+  "name": "local-llm-service",
+  "version": "1.0.0",
+  "description": "Local LLM service with OpenAI-compatible API",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "nodemon --exec ts-node src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "jest",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "ollama:pull": "docker exec ollama-ollama-1 ollama pull"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "helmet": "^7.1.0",
+    "morgan": "^1.10.0",
+    "winston": "^3.11.0",
+    "dotenv": "^16.4.5",
+    "openai": "^4.57.0",
+    "zod": "^3.23.8",
+    "uuid": "^10.0.0",
+    "chalk": "^4.1.2"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/cors": "^2.8.17",
+    "@types/morgan": "^1.9.9",
+    "@types/uuid": "^10.0.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.4",
+    "ts-node": "^10.9.2",
+    "nodemon": "^3.1.4",
+    "jest": "^29.7.0",
+    "@types/jest": "^29.5.12",
+    "eslint": "^9.8.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0"
+  },
+  "keywords": ["llm", "openai", "ollama", "ai", "api"],
+  "author": "Anatolii",
+  "license": "MIT"
+}
