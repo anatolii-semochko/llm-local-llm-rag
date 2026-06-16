@@ -1,6 +1,36 @@
 version: '3.8'
 
 services:
+  app:
+    build: .
+    container_name: llm-api-service
+    ports:
+      - "3007:3007"
+    environment:
+      - PORT=3007
+      - NODE_ENV=production
+      - API_KEY=agent-007
+      - OLLAMA_HOST=ollama
+      - OLLAMA_PORT=11434
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=rag
+      - LOG_LEVEL=info
+      - LOG_FILE=logs/app.log
+      - DEFAULT_CHAT_MODEL=qwen3:14b
+      - DEFAULT_EMBEDDING_MODEL=nomic-embed-text
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    depends_on:
+      - ollama
+      - postgres
+    networks:
+      - llm-network
+
   ollama:
     image: ollama/ollama:latest
     container_name: ollama-service
@@ -16,6 +46,8 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    networks:
+      - llm-network
 
   postgres:
     image: pgvector/pgvector:pg17
@@ -36,6 +68,12 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    networks:
+      - llm-network
+
+networks:
+  llm-network:
+    driver: bridge
 
 volumes:
   ollama-data:

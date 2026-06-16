@@ -15,7 +15,8 @@ export class OllamaService {
   constructor() {
     this.client = new OpenAI({
       apiKey: 'ollama',
-      baseURL: `${env.OLLAMA_BASE_URL}/v1`
+      baseURL: `${env.OLLAMA_BASE_URL}/v1`,
+      timeout: 30 * 60 * 1000,
     });
   }
 
@@ -30,7 +31,8 @@ export class OllamaService {
       const createParams: any = {
         model: request.model,
         messages: request.messages,
-        stream: false
+        stream: false,
+        think: false,
       };
 
       if (request.max_tokens !== undefined) {
