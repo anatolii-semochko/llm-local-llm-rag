@@ -7,9 +7,9 @@
 .DEFAULT_GOAL := help
 
 # Variables
-NODE_VERSION := $(shell node --version 2>/dev/null | cut -d'v' -f2 | cut -d'.' -f1)
 DOCKER_COMPOSE := $(shell which docker-compose 2>/dev/null || echo "docker compose")
 API_URL := http://localhost:3007
+APP_CONTAINER := llm-api-service
 OLLAMA_CONTAINER := ollama-service
 POSTGRES_CONTAINER := postgres-rag
 
@@ -32,31 +32,22 @@ help: ## Display this help message
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
 ##@ Setup and Installation
-setup: ## Complete project setup (dependencies, docker, environment)
+setup: ## Complete project setup (docker, environment)
 	@echo "$(BLUE)[INFO]$(NC) Starting complete project setup..."
 	@$(MAKE) check-requirements
-	@$(MAKE) install
+	@$(MAKE) init
 	@$(MAKE) docker-up
 	@$(MAKE) wait-services
 	@echo "$(GREEN)[SUCCESS]$(NC) Setup completed! Run 'make models-essential' to download models"
 
-install: ## Install Node.js dependencies
-	@echo "$(BLUE)[INFO]$(NC) Installing Node.js dependencies..."
-	@npm install
-	@echo "$(GREEN)[SUCCESS]$(NC) Dependencies installed"
-
 check-requirements: ## Check system requirements
 	@echo "$(BLUE)[INFO]$(NC) Checking system requirements..."
-	@if ! command -v node >/dev/null 2>&1; then \
-		echo "$(RED)[ERROR]$(NC) Node.js is not installed. Please install Node.js 18+"; \
-		exit 1; \
-	fi
-	@if [ -n "$(NODE_VERSION)" ] && [ "$(NODE_VERSION)" -lt "18" ]; then \
-		echo "$(RED)[ERROR]$(NC) Node.js version 18+ is required. Current: $(shell node --version)"; \
-		exit 1; \
-	fi
 	@if ! command -v docker >/dev/null 2>&1; then \
 		echo "$(RED)[ERROR]$(NC) Docker is not installed. Please install Docker first"; \
+		exit 1; \
+	fi
+	@if ! docker info >/dev/null 2>&1; then \
+		echo "$(RED)[ERROR]$(NC) Docker daemon is not running. Please start Docker"; \
 		exit 1; \
 	fi
 	@echo "$(GREEN)[SUCCESS]$(NC) System requirements OK"
@@ -74,58 +65,61 @@ init: ## Initialize project (create directories, copy .env)
 	@echo "$(GREEN)[SUCCESS]$(NC) Project initialized"
 
 ##@ Development
-dev: ## Start development server with hot reload
-	@echo "$(BLUE)[INFO]$(NC) Starting development server..."
-	@npm run dev
+dev: ## Start development environment (all containers)
+	@echo "$(BLUE)[INFO]$(NC) Starting development environment..."
+	@$(DOCKER_COMPOSE) up --build
 
-build: ## Build TypeScript project
-	@echo "$(BLUE)[INFO]$(NC) Building TypeScript project..."
-	@npm run build
+dev-detached: ## Start development environment in background
+	@echo "$(BLUE)[INFO]$(NC) Starting development environment in background..."
+	@$(DOCKER_COMPOSE) up -d --build
+	@echo "$(GREEN)[SUCCESS]$(NC) Development environment started"
+
+build: ## Build all Docker containers
+	@echo "$(BLUE)[INFO]$(NC) Building Docker containers..."
+	@$(DOCKER_COMPOSE) build
 	@echo "$(GREEN)[SUCCESS]$(NC) Build completed"
 
-start: ## Start production server
-	@echo "$(BLUE)[INFO]$(NC) Starting production server..."
-	@npm start
+start: ## Start all services in production mode
+	@echo "$(BLUE)[INFO]$(NC) Starting production services..."
+	@$(DOCKER_COMPOSE) up -d
+	@echo "$(GREEN)[SUCCESS]$(NC) All services started"
 
-stop: ## Stop the application (kills npm processes)
-	@echo "$(BLUE)[INFO]$(NC) Stopping application..."
-	@pkill -f "npm run dev" 2>/dev/null || true
-	@pkill -f "npm start" 2>/dev/null || true
-	@pkill -f "ts-node" 2>/dev/null || true
-	@pkill -f "node dist/index.js" 2>/dev/null || true
-	@lsof -ti:3007 | xargs kill -9 2>/dev/null || true
-	@sleep 1
-	@echo "$(GREEN)[SUCCESS]$(NC) Application stopped"
+stop: ## Stop all containers
+	@echo "$(BLUE)[INFO]$(NC) Stopping all containers..."
+	@$(DOCKER_COMPOSE) down
+	@echo "$(GREEN)[SUCCESS]$(NC) All containers stopped"
 
-force-stop: ## Force stop all related processes
-	@echo "$(YELLOW)[WARNING]$(NC) Force stopping all processes..."
-	@sudo pkill -f "npm start" 2>/dev/null || true
-	@sudo pkill -f "node dist/index.js" 2>/dev/null || true
-	@sudo lsof -ti:3007 | xargs sudo kill -9 2>/dev/null || true
-	@sleep 2
-	@echo "$(GREEN)[SUCCESS]$(NC) All processes force stopped"
+restart: ## Restart all containers
+	@echo "$(BLUE)[INFO]$(NC) Restarting all containers..."
+	@$(DOCKER_COMPOSE) restart
+	@echo "$(GREEN)[SUCCESS]$(NC) All containers restarted"
 
-restart: stop start ## Restart the application
-
-hard-restart: force-stop build start ## Hard restart with force stop and rebuild
+hard-restart: ## Hard restart with rebuild
+	@echo "$(BLUE)[INFO]$(NC) Hard restart with rebuild..."
+	@$(DOCKER_COMPOSE) down
+	@$(DOCKER_COMPOSE) up -d --build
+	@echo "$(GREEN)[SUCCESS]$(NC) Hard restart completed"
 
 ##@ Docker Services
-docker-up: ## Start Docker services (Ollama + PostgreSQL)
-	@echo "$(BLUE)[INFO]$(NC) Starting Docker services..."
-	@$(DOCKER_COMPOSE) up -d
-	@echo "$(GREEN)[SUCCESS]$(NC) Docker services started"
+docker-up: ## Start all Docker services
+	@echo "$(BLUE)[INFO]$(NC) Starting all Docker services..."
+	@$(DOCKER_COMPOSE) up -d --build
+	@echo "$(GREEN)[SUCCESS]$(NC) All Docker services started"
 
-docker-down: ## Stop Docker services
-	@echo "$(BLUE)[INFO]$(NC) Stopping Docker services..."
+docker-down: ## Stop all Docker services
+	@echo "$(BLUE)[INFO]$(NC) Stopping all Docker services..."
 	@$(DOCKER_COMPOSE) down
-	@echo "$(GREEN)[SUCCESS]$(NC) Docker services stopped"
+	@echo "$(GREEN)[SUCCESS]$(NC) All Docker services stopped"
 
-docker-restart: docker-down docker-up ## Restart Docker services
+docker-restart: ## Restart all Docker services
+	@echo "$(BLUE)[INFO]$(NC) Restarting all Docker services..."
+	@$(DOCKER_COMPOSE) restart
+	@echo "$(GREEN)[SUCCESS]$(NC) All Docker services restarted"
 
 docker-logs: ## Show Docker services logs
 	@$(DOCKER_COMPOSE) logs -f
 
-docker-status: ## Show Docker services status
+docker-status: ## Show all Docker services status
 	@$(DOCKER_COMPOSE) ps
 
 docker-clean: ## Clean Docker volumes and containers
@@ -241,7 +235,7 @@ lint-fix: ## Fix ESLint issues
 check: lint test ## Run all checks (lint + tests)
 
 ##@ API Testing
-api-test: ## Test API endpoints
+api-test: ## Test API endpoints (containerized)
 	@echo "$(BLUE)[INFO]$(NC) Testing API endpoints..."
 	@echo ""
 	@echo "🏥 Health Check:"
@@ -256,6 +250,10 @@ api-test: ## Test API endpoints
 		curl -s -H "Authorization: Bearer $(API_KEY)" $(API_URL)/v1/models | jq . 2>/dev/null || \
 		curl -s -H "Authorization: Bearer $(API_KEY)" $(API_URL)/v1/models; \
 	fi
+
+api-test-internal: ## Test API endpoints from inside Docker network
+	@echo "$(BLUE)[INFO]$(NC) Testing API endpoints from Docker network..."
+	@docker exec $(APP_CONTAINER) curl -s http://localhost:3007/health || echo "API container not running"
 
 chat-test: ## Test chat completion (uses API_KEY from .env)
 	@if [ -z "$(API_KEY)" ]; then \
@@ -298,30 +296,38 @@ backup: ## Backup important data
 	@echo "$(GREEN)[SUCCESS]$(NC) Backup created in backups/ directory"
 
 ##@ Production
-prod-build: clean install build ## Production build
+prod-build: ## Production build (containerized)
 	@echo "$(BLUE)[INFO]$(NC) Building for production..."
-	@NODE_ENV=production npm run build
+	@$(DOCKER_COMPOSE) build
 	@echo "$(GREEN)[SUCCESS]$(NC) Production build completed"
 
-prod-start: ## Start production server with PM2 (requires pm2)
-	@if ! command -v pm2 >/dev/null 2>&1; then \
-		echo "$(RED)[ERROR]$(NC) PM2 is not installed. Install with: npm install -g pm2"; \
-		exit 1; \
-	fi
-	@echo "$(BLUE)[INFO]$(NC) Starting production server with PM2..."
-	@pm2 start dist/index.js --name "llm-service"
-	@echo "$(GREEN)[SUCCESS]$(NC) Production server started"
+prod-start: ## Start production services
+	@echo "$(BLUE)[INFO]$(NC) Starting production services..."
+	@$(DOCKER_COMPOSE) up -d
+	@echo "$(GREEN)[SUCCESS]$(NC) Production services started"
 
-prod-stop: ## Stop production server (PM2)
-	@pm2 stop llm-service 2>/dev/null || true
-	@echo "$(GREEN)[SUCCESS]$(NC) Production server stopped"
+prod-stop: ## Stop production services
+	@echo "$(BLUE)[INFO]$(NC) Stopping production services..."
+	@$(DOCKER_COMPOSE) down
+	@echo "$(GREEN)[SUCCESS]$(NC) Production services stopped"
 
-prod-restart: prod-stop prod-start ## Restart production server
+prod-restart: ## Restart production services
+	@echo "$(BLUE)[INFO]$(NC) Restarting production services..."
+	@$(DOCKER_COMPOSE) restart
+	@echo "$(GREEN)[SUCCESS]$(NC) Production services restarted"
 
 ##@ Quick Actions
-quick-start: docker-up models-essential dev ## Quick start: docker + models + dev server
+quick-start: ## Quick start: all services + essential models
+	@echo "$(BLUE)[INFO]$(NC) Quick start: building and starting all services..."
+	@$(MAKE) docker-up
+	@$(MAKE) wait-services
+	@$(MAKE) models-essential
+	@echo "$(GREEN)[SUCCESS]$(NC) Quick start completed!"
 
-quick-restart: hard-restart chat-test ## Quick rebuild, restart and test
+quick-restart: ## Quick rebuild, restart and test
+	@$(MAKE) hard-restart
+	@$(MAKE) wait-services
+	@$(MAKE) api-test
 
 quick-test: ## Quick test of the entire stack
 	@$(MAKE) health

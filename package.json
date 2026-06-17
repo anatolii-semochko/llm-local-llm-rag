@@ -10,9 +10,11 @@
     "test": "jest",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
-    "docker:up": "docker compose up -d",
+    "docker:up": "docker compose up -d --build",
     "docker:down": "docker compose down",
-    "ollama:pull": "docker exec ollama-ollama-1 ollama pull"
+    "docker:logs": "docker compose logs -f",
+    "docker:rebuild": "docker compose down && docker compose up -d --build",
+    "ollama:pull": "docker exec ollama-service ollama pull"
   },
   "dependencies": {
     "express": "^4.19.2",
